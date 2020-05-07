@@ -11,7 +11,7 @@ cargo install bx
 ## Usage
 
 ```bash
-bx file [FILE_ID] --download-to .
+bx file [FILE_ID] --download-to . --token [BOX_DEV_TOKEN]
 ```
 
 ## Contributing
