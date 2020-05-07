@@ -5,7 +5,7 @@ mod sdk;
 
 use tokio::prelude::*;
 
-use clap::{App, Arg, ArgGroup, SubCommand};
+use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 use reqwest::Response;
 use sdk::file::FileUpdates;
 use sdk::Client;
@@ -17,10 +17,11 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let app = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(
             Arg::with_name("token")
                 .long("token")
@@ -84,8 +85,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .short("D")
                         .takes_value(true),
                 ),
-        )
-        .get_matches();
+        );
+
+    let matches = app.get_matches();
 
     let token = matches.value_of("token").expect("Token must be provided!");
     let client = Client::new(token.to_owned());
@@ -122,11 +124,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let path = Path::new(matches.value_of("path").unwrap());
         let folder_id = matches.value_of("folderID").unwrap_or("0");
         upload_file(&client, path, folder_id).await?;
-
-    // DEFAULT COMMAND
-    } else {
-        let name = matches.value_of("name").unwrap_or("World");
-        default_command(name);
     }
 
     Ok(())
@@ -206,8 +203,4 @@ async fn upload_file(client: &Client, path: &Path, folder_id: &str) -> Result<()
     let resp = client.multipart_upload(&url, form).await?;
     println!("{:#?}", resp.text().await?);
     Ok(())
-}
-
-fn default_command(name: &str) {
-    println!("Hello, {}!", name);
 }
