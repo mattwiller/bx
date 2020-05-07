@@ -1,0 +1,6 @@
+{
+    "editor.defaultFormatter": "rust-lang.rust",
+    "editor.formatOnSave": true,
+    "workbench.colorTheme": "Eva Dark Bold",
+    "oneDark.vivid": true
+}
