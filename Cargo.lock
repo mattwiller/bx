@@ -73,12 +73,15 @@ checksum = "12ae9db68ad7fac5fe51304d20f016c911539251075a214f8e663babefa35187"
 name = "bx"
 version = "0.0.1"
 dependencies = [
+ "bytes",
  "clap",
+ "http",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
  "tokio-util",
+ "url",
 ]
 
 [[package]]
