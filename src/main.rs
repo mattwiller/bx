@@ -85,6 +85,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .short("D")
                         .takes_value(true),
                 ),
+        )
+        .subcommand(
+            SubCommand::with_name("user")
+                .about("Display information about a user")
+                .arg(
+                    Arg::with_name("id")
+                        .help("The ID of the user")
+                        .default_value("me"),
+                ),
         );
 
     let matches = app.get_matches();
@@ -124,6 +133,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let path = Path::new(matches.value_of("path").unwrap());
         let folder_id = matches.value_of("folderID").unwrap_or("0");
         upload_file(&mut client, path, folder_id).await?;
+
+        // COMMAND: user
+    } else if let Some(matches) = matches.subcommand_matches("user") {
+        let id = matches.value_of("id").unwrap();
+        get_user(&mut client, id).await?;
     }
 
     Ok(())
@@ -206,5 +220,11 @@ async fn upload_file(
 
     let resp = client.multipart_upload(&url, form).await?;
     println!("{:#?}", resp.text().await?);
+    Ok(())
+}
+
+async fn get_user(client: &mut Client, id: &str) -> Result<(), Box<dyn Error>> {
+    let user = client.get_user(id).await?;
+    println!("{:?}", user);
     Ok(())
 }

@@ -68,4 +68,13 @@ impl Client {
 
         Ok(file)
     }
+
+    pub async fn get_user(&mut self, id: &str) -> Result<User, Error> {
+        let url = format!("https://api.box.com/2.0/users/{}", id);
+        let resp = self.get(&url).await?;
+
+        let user: User = serde_json::from_str(&resp.text().await?)?;
+
+        Ok(user)
+    }
 }
