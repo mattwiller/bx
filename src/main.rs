@@ -5,7 +5,7 @@ mod sdk;
 
 use tokio::prelude::*;
 
-use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
+use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
 use reqwest::Response;
 use sdk::file::FileUpdates;
 use sdk::Client;
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let matches = app.get_matches();
 
     let token = matches.value_of("token").expect("Token must be provided!");
-    let client = Client::new(token.to_owned());
+    let mut client = Client::new(token.to_owned());
 
     // OBJECT: file
     if let Some(matches) = matches.subcommand_matches("file") {
@@ -98,11 +98,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         // ACTION: delete
         if matches.is_present("delete") {
-            delete_file(&client, file_id).await?;
+            delete_file(&mut client, file_id).await?;
         // ACTION: download
         } else if matches.is_present("downloadToPath") {
             let path = Path::new(matches.value_of("downloadToPath").unwrap_or("."));
-            download_file(&client, file_id, path).await?;
+            download_file(&mut client, file_id, path).await?;
         // ACTION: update
         } else if matches.is_present("update") {
             let mut updates = FileUpdates::new();
@@ -113,23 +113,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 updates = updates.description(description);
             }
 
-            update_file(&client, file_id, updates).await?;
+            update_file(&mut client, file_id, updates).await?;
         // DEFAULT ACTION: get
         } else {
-            get_file(&client, file_id).await?;
+            get_file(&mut client, file_id).await?;
         }
 
     // COMMAND: upload
     } else if let Some(matches) = matches.subcommand_matches("upload") {
         let path = Path::new(matches.value_of("path").unwrap());
         let folder_id = matches.value_of("folderID").unwrap_or("0");
-        upload_file(&client, path, folder_id).await?;
+        upload_file(&mut client, path, folder_id).await?;
     }
 
     Ok(())
 }
 
-async fn get_file(client: &Client, id: &str) -> Result<(), Box<dyn Error>> {
+async fn get_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
     println!("Fetching file {}", id);
     let file = client.get_file(id).await?;
     println!("{:?}", file);
@@ -137,7 +137,7 @@ async fn get_file(client: &Client, id: &str) -> Result<(), Box<dyn Error>> {
 }
 
 async fn update_file(
-    client: &Client,
+    client: &mut Client,
     id: &str,
     updates: FileUpdates<'_>,
 ) -> Result<(), Box<dyn Error>> {
@@ -149,7 +149,7 @@ async fn update_file(
     Ok(())
 }
 
-async fn download_file(client: &Client, id: &str, path: &Path) -> Result<(), Box<dyn Error>> {
+async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), Box<dyn Error>> {
     println!("Downloading file {}", id);
     let url = format!("https://api.box.com/2.0/files/{}/content", id);
 
@@ -168,7 +168,7 @@ async fn download_file(client: &Client, id: &str, path: &Path) -> Result<(), Box
     Ok(())
 }
 
-async fn delete_file(client: &Client, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn delete_file(client: &mut Client, id: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("Deleting file {}", id);
     let url = format!("https://api.box.com/2.0/files/{}", id);
 
@@ -177,7 +177,11 @@ async fn delete_file(client: &Client, id: &str) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-async fn upload_file(client: &Client, path: &Path, folder_id: &str) -> Result<(), Box<dyn Error>> {
+async fn upload_file(
+    client: &mut Client,
+    path: &Path,
+    folder_id: &str,
+) -> Result<(), Box<dyn Error>> {
     let file = fs::File::open(path).await?;
     let stream = FramedRead::new(file, BytesCodec::new());
     let file_part = reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(stream))

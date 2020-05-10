@@ -5,49 +5,62 @@ use reqwest::Client as HttpClient;
 use reqwest::Response;
 use serde::Serialize;
 
+use super::auth::{Auth, SingleTokenAuth};
 use super::file::File;
+use super::user::User;
+use super::Error;
 
 pub struct Client {
-    token: String,
+    auth: Box<dyn Auth>,
     client: HttpClient,
 }
 
 impl Client {
     pub fn new(token: String) -> Client {
         let client = HttpClient::new();
-        Client { token, client }
+        Client {
+            auth: Box::from(SingleTokenAuth::new(token)),
+            client,
+        }
     }
 
-    pub async fn get(&self, url: &str) -> Result<Response, reqwest::Error> {
-        let request = self.client.get(url).bearer_auth(&self.token);
-        request.send().await
+    pub async fn get(&mut self, url: &str) -> Result<Response, Error> {
+        let access_token = &self.auth.token().await?;
+        let request = self.client.get(url).bearer_auth(access_token.as_str());
+        request.send().await.map_err(Error::from)
     }
 
-    pub async fn put<T: Serialize>(&self, url: &str, body: T) -> Result<Response, reqwest::Error> {
-        let request = self.client.put(url).bearer_auth(&self.token).json(&body);
-        request.send().await
+    pub async fn put<T: Serialize>(&mut self, url: &str, body: T) -> Result<Response, Error> {
+        let access_token = &self.auth.token().await?;
+        let request = self
+            .client
+            .put(url)
+            .bearer_auth(access_token.as_str())
+            .json(&body);
+        request.send().await.map_err(Error::from)
     }
 
-    pub async fn delete(&self, url: &str) -> Result<Response, reqwest::Error> {
-        let request = self.client.delete(url).bearer_auth(&self.token);
-        request.send().await
+    pub async fn delete(&mut self, url: &str) -> Result<Response, Error> {
+        let access_token = &self.auth.token().await?;
+        let request = self.client.delete(url).bearer_auth(access_token.as_str());
+        request.send().await.map_err(Error::from)
     }
 
     pub async fn multipart_upload<'a>(
-        &self,
+        &mut self,
         url: &str,
         form: reqwest::multipart::Form,
-    ) -> Result<Response, reqwest::Error> {
+    ) -> Result<Response, Error> {
+        let access_token = &self.auth.token().await?;
         let request = self
             .client
             .post(url)
-            .bearer_auth(&self.token)
+            .bearer_auth(access_token.as_str())
             .multipart(form);
-
-        request.send().await
+        request.send().await.map_err(Error::from)
     }
 
-    pub async fn get_file(&self, id: &str) -> Result<File, Box<dyn std::error::Error>> {
+    pub async fn get_file(&mut self, id: &str) -> Result<File, Error> {
         let url = format!("https://api.box.com/2.0/files/{}", id);
         let resp = self.get(&url).await?;
 
