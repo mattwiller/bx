@@ -1,80 +1,117 @@
 #![warn(rust_2018_idioms)]
 #![deny(clippy::all)]
 
-use reqwest::Client as HttpClient;
-use reqwest::Response;
 use serde::Serialize;
 
 use super::auth::{Auth, SingleTokenAuth};
+use super::collection::Collection;
 use super::file::File;
 use super::user::User;
-use super::Error;
+use super::{Body, Error, HTTPMethod, MultipartBody, NetworkAgent, Request, Response};
+use serde_json::json;
+use std::path::Path;
+use tokio::fs;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 pub struct Client {
     auth: Box<dyn Auth>,
-    client: HttpClient,
+    network: NetworkAgent,
 }
 
 impl Client {
     pub fn new(token: String) -> Client {
-        let client = HttpClient::new();
         Client {
             auth: Box::from(SingleTokenAuth::new(token)),
-            client,
+            network: NetworkAgent::new(),
         }
     }
 
-    pub async fn get(&mut self, url: &str) -> Result<Response, Error> {
+    async fn make_request(&mut self, request: Request) -> Result<Response, Error> {
+        let mut request = request;
+
         let access_token = &self.auth.token().await?;
-        let request = self.client.get(url).bearer_auth(access_token.as_str());
-        request.send().await.map_err(Error::from)
+        request = request.with_header(
+            "Authorization",
+            &format!("Bearer {}", access_token.as_str()),
+        );
+        self.network.send_request(request).await
+    }
+
+    pub async fn get(&mut self, url: &str) -> Result<Response, Error> {
+        let request = self.network.start_request(HTTPMethod::GET, url);
+        self.make_request(request).await
     }
 
     pub async fn put<T: Serialize>(&mut self, url: &str, body: T) -> Result<Response, Error> {
-        let access_token = &self.auth.token().await?;
         let request = self
-            .client
-            .put(url)
-            .bearer_auth(access_token.as_str())
-            .json(&body);
-        request.send().await.map_err(Error::from)
+            .network
+            .start_request(HTTPMethod::PUT, url)
+            .with_body(Body::JSON(serde_json::to_value(body)?));
+        self.make_request(request).await
     }
 
     pub async fn delete(&mut self, url: &str) -> Result<Response, Error> {
-        let access_token = &self.auth.token().await?;
-        let request = self.client.delete(url).bearer_auth(access_token.as_str());
-        request.send().await.map_err(Error::from)
+        let request = self.network.start_request(HTTPMethod::DELETE, url);
+        self.make_request(request).await
     }
 
     pub async fn multipart_upload<'a>(
         &mut self,
         url: &str,
-        form: reqwest::multipart::Form,
+        body: MultipartBody,
     ) -> Result<Response, Error> {
-        let access_token = &self.auth.token().await?;
         let request = self
-            .client
-            .post(url)
-            .bearer_auth(access_token.as_str())
-            .multipart(form);
-        request.send().await.map_err(Error::from)
+            .network
+            .start_request(HTTPMethod::POST, url)
+            .with_body(Body::Multipart(body));
+        self.make_request(request).await
     }
 
     pub async fn get_file(&mut self, id: &str) -> Result<File, Error> {
         let url = format!("https://api.box.com/2.0/files/{}", id);
-        let resp = self.get(&url).await?;
+        let response = self.get(&url).await?;
 
-        let file: File = serde_json::from_str(&resp.text().await?)?;
+        let file: File = response.deserialize().await?;
 
         Ok(file)
     }
 
     pub async fn get_user(&mut self, id: &str) -> Result<User, Error> {
         let url = format!("https://api.box.com/2.0/users/{}", id);
-        let resp = self.get(&url).await?;
+        let response = self.get(&url).await?;
 
-        let user: User = serde_json::from_str(&resp.text().await?)?;
+        let user: User = response.deserialize().await?;
 
         Ok(user)
+    }
+
+    pub async fn upload_file(&mut self, path: &Path, folder_id: &str) -> Result<File, Error> {
+        let file = fs::File::open(path).await?;
+        let stream = FramedRead::new(file, BytesCodec::new());
+
+        let filename = path.file_name().unwrap().to_str();
+        let attributes_json = json!({
+            "name": filename,
+            "parent": {
+                "id": folder_id
+            }
+        })
+        .to_string();
+
+        let form = MultipartBody::new()
+            .with_text_part("attributes", &attributes_json)
+            .with_stream_part("file", stream);
+
+        let url = "https://upload.box.com/api/2.0/files/content";
+
+        let response = self.multipart_upload(&url, form).await?;
+        let data: Collection<File> = response.deserialize().await?;
+        Ok(data.entries[0].to_owned())
+    }
+
+    pub async fn delete_file(&mut self, id: &str) -> Result<(), Error> {
+        let url = format!("https://api.box.com/2.0/files/{}", id);
+        self.delete(&url).await?;
+        Ok(())
     }
 }

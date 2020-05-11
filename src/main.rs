@@ -6,17 +6,12 @@ mod sdk;
 use tokio::prelude::*;
 
 use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
-use reqwest::Response;
-use sdk::file::FileUpdates;
-use sdk::Client;
-use serde_json::json;
-use std::error::Error;
+use sdk::file::{File, FileUpdates};
+use sdk::{Client, Response};
 use std::path::Path;
-use tokio::fs;
-use tokio_util::codec::{BytesCodec, FramedRead};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -134,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let folder_id = matches.value_of("folderID").unwrap_or("0");
         upload_file(&mut client, path, folder_id).await?;
 
-        // COMMAND: user
+    // COMMAND: user
     } else if let Some(matches) = matches.subcommand_matches("user") {
         let id = matches.value_of("id").unwrap();
         get_user(&mut client, id).await?;
@@ -154,16 +149,17 @@ async fn update_file(
     client: &mut Client,
     id: &str,
     updates: FileUpdates<'_>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), sdk::Error> {
     println!("Updating file {}", id);
     let url = format!("https://api.box.com/2.0/files/{}", id);
 
-    let resp = client.put(&url, updates).await?;
-    println!("{:#?}", resp.text().await?);
+    let response = client.put(&url, updates).await?;
+    let file: File = response.deserialize().await?;
+    println!("{:#?}", file);
     Ok(())
 }
 
-async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), Box<dyn Error>> {
+async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), sdk::Error> {
     println!("Downloading file {}", id);
     let url = format!("https://api.box.com/2.0/files/{}/content", id);
 
@@ -184,46 +180,41 @@ async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(),
 
 async fn delete_file(client: &mut Client, id: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("Deleting file {}", id);
-    let url = format!("https://api.box.com/2.0/files/{}", id);
-
-    client.delete(&url).await?;
+    client.delete_file(id).await?;
     println!("File {} deleted", id);
     Ok(())
 }
 
-async fn upload_file(
-    client: &mut Client,
-    path: &Path,
-    folder_id: &str,
-) -> Result<(), Box<dyn Error>> {
-    let file = fs::File::open(path).await?;
-    let stream = FramedRead::new(file, BytesCodec::new());
-    let file_part = reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(stream))
-        .file_name("UNUSED")
-        .mime_str("application/octet-stream")
-        .unwrap();
+async fn upload_file(client: &mut Client, path: &Path, folder_id: &str) -> Result<(), sdk::Error> {
+    // let file = fs::File::open(path).await?;
+    // let stream = FramedRead::new(file, BytesCodec::new());
+    // let file_part = reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(stream))
+    //     .file_name("UNUSED")
+    //     .mime_str("application/octet-stream")
+    //     .unwrap();
 
-    let filename = path.file_name().unwrap().to_str();
-    let attributes_json = json!({
-        "name": filename,
-        "parent": {
-            "id": folder_id
-        }
-    })
-    .to_string();
+    // let filename = path.file_name().unwrap().to_str();
+    // let attributes_json = json!({
+    //     "name": filename,
+    //     "parent": {
+    //         "id": folder_id
+    //     }
+    // })
+    // .to_string();
 
-    let form = reqwest::multipart::Form::new()
-        .text("attributes", attributes_json)
-        .part("file", file_part);
+    // let form = reqwest::multipart::Form::new()
+    //     .text("attributes", attributes_json)
+    //     .part("file", file_part);
 
-    let url = "https://upload.box.com/api/2.0/files/content";
+    // let url = "https://upload.box.com/api/2.0/files/content";
 
-    let resp = client.multipart_upload(&url, form).await?;
-    println!("{:#?}", resp.text().await?);
+    let file = client.upload_file(path, folder_id).await?;
+    // let resp = client.multipart_upload(&url, form).await?;
+    println!("{:#?}", file);
     Ok(())
 }
 
-async fn get_user(client: &mut Client, id: &str) -> Result<(), Box<dyn Error>> {
+async fn get_user(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
     let user = client.get_user(id).await?;
     println!("{:?}", user);
     Ok(())
