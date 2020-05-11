@@ -186,30 +186,7 @@ async fn delete_file(client: &mut Client, id: &str) -> Result<(), Box<dyn std::e
 }
 
 async fn upload_file(client: &mut Client, path: &Path, folder_id: &str) -> Result<(), sdk::Error> {
-    // let file = fs::File::open(path).await?;
-    // let stream = FramedRead::new(file, BytesCodec::new());
-    // let file_part = reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(stream))
-    //     .file_name("UNUSED")
-    //     .mime_str("application/octet-stream")
-    //     .unwrap();
-
-    // let filename = path.file_name().unwrap().to_str();
-    // let attributes_json = json!({
-    //     "name": filename,
-    //     "parent": {
-    //         "id": folder_id
-    //     }
-    // })
-    // .to_string();
-
-    // let form = reqwest::multipart::Form::new()
-    //     .text("attributes", attributes_json)
-    //     .part("file", file_part);
-
-    // let url = "https://upload.box.com/api/2.0/files/content";
-
     let file = client.upload_file(path, folder_id).await?;
-    // let resp = client.multipart_upload(&url, form).await?;
     println!("{:#?}", file);
     Ok(())
 }
