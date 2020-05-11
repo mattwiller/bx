@@ -35,15 +35,6 @@ pub enum Body {
     Multipart(MultipartBody),
 }
 
-// impl From<Body> for ReqwestBody {
-//     fn from(body: Body) -> ReqwestBody {
-//         match body {
-//             Body::Empty => ReqwestBody::from(""),
-//             Body::JSON(json) => ReqwestBody::from(json.to_string()),
-//         }
-//     }
-// }
-
 #[derive(Default)]
 pub struct MultipartBody {
     form: MultipartForm,

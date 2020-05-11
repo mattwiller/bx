@@ -88,10 +88,6 @@ impl Client {
     pub async fn upload_file(&mut self, path: &Path, folder_id: &str) -> Result<File, Error> {
         let file = fs::File::open(path).await?;
         let stream = FramedRead::new(file, BytesCodec::new());
-        // let file_part = reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(stream))
-        //     .file_name("UNUSED")
-        //     .mime_str("application/octet-stream")
-        //     .unwrap();
 
         let filename = path.file_name().unwrap().to_str();
         let attributes_json = json!({
