@@ -1,9 +1,8 @@
-use reqwest::{Client as ReqwestClient, Request as ReqwestRequest, Response as ReqwestResponse, Method as ReqwestMethod, Body as ReqwestBody};
-use reqwest::header::HeaderMap as ReqwestHeaders;
+use reqwest::{Client as ReqwestClient, Request as ReqwestRequest, Response as ReqwestResponse, Method as ReqwestMethod, Body as ReqwestBody, RequestBuilder};
+use reqwest::header::{HeaderValue, HeaderName};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use bytes::Bytes;
+use std::convert::TryFrom;
+use super::Error;
 
 pub enum HTTPMethod {
     GET,
@@ -28,112 +27,87 @@ impl From<HTTPMethod> for ReqwestMethod {
 pub enum Body {
     Empty,
     JSON(Value),
+    Multipart(MultipartBody)
 }
 
-impl From<Body> for ReqwestBody {
-    fn from(body: Body) -> ReqwestBody {
-        match body {
-            Body::Empty => ReqwestBody::from(""),
-            Body::JSON(json) => ReqwestBody::from(json.to_string()),
-        }
-    }
+// impl From<Body> for ReqwestBody {
+//     fn from(body: Body) -> ReqwestBody {
+//         match body {
+//             Body::Empty => ReqwestBody::from(""),
+//             Body::JSON(json) => ReqwestBody::from(json.to_string()),
+//         }
+//     }
+// }
+
+pub struct MultipartBody {
+    inner: reqwest::multipart::Form,
+}
+
+impl MultipartBody {
+
 }
 
 pub struct Request {
-    url: String,
-    method: HTTPMethod,
-    body: Body,
-    headers: HashMap<String, String>,
+    req: RequestBuilder,
 }
 
 impl Request {
-    pub fn new(method: HTTPMethod, url: String) -> Request {
-        Request {
-            url,
-            method,
-            body: Body::Empty,
-            headers: HashMap::with_capacity(3),
-        }
+    fn new(req: RequestBuilder) -> Request {
+        Request { req }
     }
 
     pub fn set_body(&mut self, body: Body) {
-        self.body = body;
+        match body {
+            Body::Empty => {},
+            Body::JSON(json) => { self.req.body(json.to_string()); },
+            Body::Multipart(form) => { self.req.multipart(form.inner); },
+        }
     }
 
-    pub fn add_header(&mut self, name: &str, value: &str) {
-        self.headers.insert(name.to_owned(), value.to_owned());
+    pub fn add_header(&mut self, key: &str, value: &str) {
+        self.req.header(key, value);
     }
 }
 
-impl TryFrom<Request> for ReqwestRequest {
-    fn try_from(req: Request) -> Result<ReqwestRequest, NetworkError> {
-        let reqwest = ReqwestRequest::new(req.method.into(), req.url.parse()?);
-        *reqwest.body_mut() = match req.body {
-            Body::Empty => None,
-            Body::JSON(json) => Some(ReqwestBody::from(json.to_string())),
-        }; 
-        *reqwest.headers_mut() = {
-            let headers = ReqwestHeaders::new();
-            for (k, v) in req.headers.iter() {
-                headers.append(k, v);
-            }
-            headers
-        };
-        Ok(reqwest)
+impl From<Request> for ReqwestRequest {
+    fn from(request: Request) -> Result<ReqwestRequest, Error> {
+        Ok(request.req.build()?)
     }
 }
 
 pub struct Response {
-    status: u16,
-    body: Bytes,
-    headers: HashMap<String, String>,
+    res: ReqwestResponse,
 }
 
-impl TryFrom<ReqwestResponse> for Response {
-    fn try_from(res: ReqwestResponse) -> Result<Response, NetworkError> {
-        let response = Response {
-            status: res.status().as_u16(),
-            body: res.bytes().await?,
-            headers: {
-                let h = res.headers();
-                let headers = HashMap::with_capacity(h.keys_len());
-                for (k, v) in h {
-                    headers.insert(k.to_string(), String::from(v.to_str()?));
-                }
-                headers
-            }
-        };
-
-        Ok(response);
+impl Response {
+    pub async fn deserialize<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+        self.res.json().await.map_err(Error::from)
     }
 }
 
+impl From<ReqwestResponse> for Response {
+    fn from(res: ReqwestResponse) -> Response {
+        Response { res }
+    }
+}
 
 pub struct NetworkAgent {
-    httpClient: ReqwestClient,
+    http_client: ReqwestClient,
 }
 
 impl NetworkAgent {
-    pub async fn send_request(&self, request: Request) -> Result<Response, NetworkError> {
-        let response = self.httpClient.execute(request.try_into()?).await;
-        return response.into();
+
+    pub fn new() -> NetworkAgent {
+        NetworkAgent { http_client: ReqwestClient::default() }
+    }
+
+    pub fn start_request(&self, method: HTTPMethod, url: &str) -> Request {
+        let req = self.http_client.request(method.into(), url);
+        Request::new(req)
+    }
+
+    pub async fn send_request(&self, request: Request) -> Result<Response, Error> {
+        let res = self.http_client.execute(ReqwestRequest::from(request)).await?;
+        Ok(Response::from(res))
     }
 }
-
-pub enum NetworkError {
-    InvalidURL,
-    InvalidHeader,
-}
-
-impl From<url::ParseError> for NetworkError {
-    fn from(e: url::ParseError) -> NetworkError {
-        NetworkError::InvalidURL
-    }
-}
-
-impl From<http::header::ToStrError> for NetworkError {
-    fn from(e: http::header::ToStrError) -> NetworkError {
-        NetworkError::InvalidHeader
-    }
-}
-
