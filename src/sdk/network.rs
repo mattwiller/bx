@@ -1,8 +1,13 @@
-use reqwest::{Client as ReqwestClient, Request as ReqwestRequest, Response as ReqwestResponse, Method as ReqwestMethod, Body as ReqwestBody, RequestBuilder};
-use reqwest::header::{HeaderValue, HeaderName};
+use super::Error;
+use bytes::Bytes;
+use futures::stream::TryStream;
+use reqwest::multipart::Form as MultipartForm;
+use reqwest::{
+    Client as ReqwestClient, Method as ReqwestMethod,
+    Request as ReqwestRequest, RequestBuilder, Response as ReqwestResponse,
+};
 use serde_json::Value;
 use std::convert::TryFrom;
-use super::Error;
 
 pub enum HTTPMethod {
     GET,
@@ -27,7 +32,7 @@ impl From<HTTPMethod> for ReqwestMethod {
 pub enum Body {
     Empty,
     JSON(Value),
-    Multipart(MultipartBody)
+    Multipart(MultipartBody),
 }
 
 // impl From<Body> for ReqwestBody {
@@ -39,12 +44,37 @@ pub enum Body {
 //     }
 // }
 
+#[derive(Default)]
 pub struct MultipartBody {
-    inner: reqwest::multipart::Form,
+    form: MultipartForm,
 }
 
 impl MultipartBody {
+    pub fn new() -> MultipartBody {
+        MultipartBody {
+            form: MultipartForm::new(),
+        }
+    }
 
+    pub fn with_text_part(mut self, name: &str, body: &str) -> MultipartBody {
+        self.form = self.form.text(name.to_owned(), body.to_owned());
+        self
+    }
+
+    pub fn with_stream_part<S>(mut self, name: &str, body: S) -> MultipartBody
+    where
+        S: TryStream + Send + Sync + 'static,
+        S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+        Bytes: From<S::Ok>,
+    {
+        let file_part = reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(body))
+            .file_name("UNUSED")
+            .mime_str("application/octet-stream")
+            .unwrap();
+
+        self.form = self.form.part(name.to_owned(), file_part);
+        self
+    }
 }
 
 pub struct Request {
@@ -56,21 +86,24 @@ impl Request {
         Request { req }
     }
 
-    pub fn set_body(&mut self, body: Body) {
-        match body {
-            Body::Empty => {},
-            Body::JSON(json) => { self.req.body(json.to_string()); },
-            Body::Multipart(form) => { self.req.multipart(form.inner); },
-        }
+    pub fn with_body(mut self, body: Body) -> Request {
+        self.req = match body {
+            Body::Empty => self.req,
+            Body::JSON(json) => self.req.body(json.to_string()),
+            Body::Multipart(body) => self.req.multipart(body.form),
+        };
+        self
     }
 
-    pub fn add_header(&mut self, key: &str, value: &str) {
-        self.req.header(key, value);
+    pub fn with_header(mut self, key: &str, value: &str) -> Request {
+        self.req = self.req.header(key, value);
+        self
     }
 }
 
-impl From<Request> for ReqwestRequest {
-    fn from(request: Request) -> Result<ReqwestRequest, Error> {
+impl TryFrom<Request> for ReqwestRequest {
+    type Error = Error;
+    fn try_from(request: Request) -> Result<ReqwestRequest, Error> {
         Ok(request.req.build()?)
     }
 }
@@ -80,8 +113,12 @@ pub struct Response {
 }
 
 impl Response {
-    pub async fn deserialize<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+    pub async fn deserialize<T: serde::de::DeserializeOwned>(self) -> Result<T, Error> {
         self.res.json().await.map_err(Error::from)
+    }
+
+    pub async fn chunk(&mut self) -> Result<Option<Bytes>, Error> {
+        Ok(self.res.chunk().await?)
     }
 }
 
@@ -96,9 +133,10 @@ pub struct NetworkAgent {
 }
 
 impl NetworkAgent {
-
     pub fn new() -> NetworkAgent {
-        NetworkAgent { http_client: ReqwestClient::default() }
+        NetworkAgent {
+            http_client: ReqwestClient::default(),
+        }
     }
 
     pub fn start_request(&self, method: HTTPMethod, url: &str) -> Request {
@@ -107,7 +145,10 @@ impl NetworkAgent {
     }
 
     pub async fn send_request(&self, request: Request) -> Result<Response, Error> {
-        let res = self.http_client.execute(ReqwestRequest::from(request)).await?;
+        let res = self
+            .http_client
+            .execute(ReqwestRequest::try_from(request)?)
+            .await?;
         Ok(Response::from(res))
     }
 }

@@ -7,6 +7,7 @@ pub enum Error {
     Deserialize(serde_json::Error),
     InvalidURL(url::ParseError),
     InvalidHeader(http::Error),
+    FileIO(tokio::io::Error),
 }
 
 impl fmt::Display for Error {
@@ -17,6 +18,7 @@ impl fmt::Display for Error {
             Error::Deserialize(e) => write!(f, "Deserialiazation error: {}", e),
             Error::InvalidURL(e) => write!(f, "Invalid URL: {}", e),
             Error::InvalidHeader(e) => write!(f, "Invalid header: {}", e),
+            Error::FileIO(e) => write!(f, "Error reading file: {}", e),
         }
     }
 }
@@ -29,6 +31,7 @@ impl std::error::Error for Error {
             Error::Deserialize(e) => Some(e),
             Error::InvalidURL(e) => Some(e),
             Error::InvalidHeader(e) => Some(e),
+            Error::FileIO(e) => Some(e),
         }
     }
 }
@@ -60,5 +63,11 @@ impl From<http::header::InvalidHeaderName> for Error {
 impl From<http::header::InvalidHeaderValue> for Error {
     fn from(e: http::header::InvalidHeaderValue) -> Error {
         Error::InvalidHeader(http::Error::from(e))
+    }
+}
+
+impl From<tokio::io::Error> for Error {
+    fn from(e: tokio::io::Error) -> Error {
+        Error::FileIO(e)
     }
 }

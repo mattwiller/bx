@@ -30,7 +30,7 @@ impl<'a> FileUpdates<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ItemStatus {
     Active,
@@ -38,7 +38,7 @@ pub enum ItemStatus {
     Deleted,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct File {
     etag: Option<String>,
     id: String,
@@ -68,7 +68,7 @@ pub struct File {
     trashed_at: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileVersion {
     r#type: String,
     id: String,
