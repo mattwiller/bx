@@ -3,8 +3,8 @@ use bytes::Bytes;
 use futures::stream::TryStream;
 use reqwest::multipart::Form as MultipartForm;
 use reqwest::{
-    Client as ReqwestClient, Method as ReqwestMethod,
-    Request as ReqwestRequest, RequestBuilder, Response as ReqwestResponse,
+    Client as ReqwestClient, Method as ReqwestMethod, Request as ReqwestRequest, RequestBuilder,
+    Response as ReqwestResponse,
 };
 use serde_json::Value;
 use std::convert::TryFrom;
