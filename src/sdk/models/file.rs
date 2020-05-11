@@ -4,32 +4,6 @@ use super::shared_link::SharedLink;
 use super::user::User;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
-pub struct FileUpdates<'a> {
-    description: Option<&'a str>,
-    name: Option<&'a str>,
-    // @TODO: Implement other fields
-}
-
-impl<'a> FileUpdates<'a> {
-    pub fn new() -> FileUpdates<'a> {
-        FileUpdates {
-            description: None,
-            name: None,
-        }
-    }
-
-    pub fn description(mut self, description: &'a str) -> Self {
-        self.description = Some(description);
-        self
-    }
-
-    pub fn name(mut self, name: &'a str) -> Self {
-        self.name = Some(name);
-        self
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ItemStatus {

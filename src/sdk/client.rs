@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::auth::{Auth, SingleTokenAuth};
 use super::collection::Collection;
 use super::file::File;
-use super::user::User;
+use super::operations::{FileOperation, UserOperation};
 use super::{Body, Error, HTTPMethod, MultipartBody, NetworkAgent, Request, Response};
 use serde_json::json;
 use std::path::Path;
@@ -67,22 +67,12 @@ impl Client {
         self.make_request(request).await
     }
 
-    pub async fn get_file(&mut self, id: &str) -> Result<File, Error> {
-        let url = format!("https://api.box.com/2.0/files/{}", id);
-        let response = self.get(&url).await?;
-
-        let file: File = response.deserialize().await?;
-
-        Ok(file)
+    pub fn file<'a>(&'a mut self, id: &'a str) -> FileOperation<'a> {
+        FileOperation::new(id, self)
     }
 
-    pub async fn get_user(&mut self, id: &str) -> Result<User, Error> {
-        let url = format!("https://api.box.com/2.0/users/{}", id);
-        let response = self.get(&url).await?;
-
-        let user: User = response.deserialize().await?;
-
-        Ok(user)
+    pub fn user<'a>(&'a mut self, id: &'a str) -> UserOperation<'a> {
+        UserOperation::new(id, self)
     }
 
     pub async fn upload_file(&mut self, path: &Path, folder_id: &str) -> Result<File, Error> {
@@ -107,11 +97,5 @@ impl Client {
         let response = self.multipart_upload(&url, form).await?;
         let data: Collection<File> = response.deserialize().await?;
         Ok(data.entries[0].to_owned())
-    }
-
-    pub async fn delete_file(&mut self, id: &str) -> Result<(), Error> {
-        let url = format!("https://api.box.com/2.0/files/{}", id);
-        self.delete(&url).await?;
-        Ok(())
     }
 }

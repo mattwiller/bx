@@ -3,11 +3,9 @@
 
 mod sdk;
 
-use tokio::prelude::*;
-
 use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
-use sdk::file::{File, FileUpdates};
-use sdk::{Client, Response};
+use sdk::operations::FileUpdates;
+use sdk::Client;
 use std::path::Path;
 
 #[tokio::main]
@@ -140,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn get_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
     println!("Fetching file {}", id);
-    let file = client.get_file(id).await?;
+    let file = client.file(id).get().await?;
     println!("{:?}", file);
     Ok(())
 }
@@ -148,39 +146,24 @@ async fn get_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
 async fn update_file(
     client: &mut Client,
     id: &str,
-    updates: FileUpdates<'_>,
+    updates: FileUpdates,
 ) -> Result<(), sdk::Error> {
     println!("Updating file {}", id);
-    let url = format!("https://api.box.com/2.0/files/{}", id);
-
-    let response = client.put(&url, updates).await?;
-    let file: File = response.deserialize().await?;
+    let file = client.file(id).update(updates).await?;
     println!("{:#?}", file);
     Ok(())
 }
 
 async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), sdk::Error> {
     println!("Downloading file {}", id);
-    let url = format!("https://api.box.com/2.0/files/{}/content", id);
-
-    let mut resp: Response = client.get(&url).await?;
-
-    let mut file = tokio::fs::OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(path)
-        .await?;
-
-    while let Some(bytes) = resp.chunk().await? {
-        file.write_all(&bytes).await?;
-    }
+    client.file(id).download(path).await?;
     println!("File {} downloaded to {}", id, path.to_str().unwrap());
     Ok(())
 }
 
 async fn delete_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
     println!("Deleting file {}", id);
-    client.delete_file(id).await?;
+    client.file(id).delete().await?;
     println!("File {} deleted", id);
     Ok(())
 }
@@ -192,7 +175,7 @@ async fn upload_file(client: &mut Client, path: &Path, folder_id: &str) -> Resul
 }
 
 async fn get_user(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
-    let user = client.get_user(id).await?;
+    let user = client.user(id).get().await?;
     println!("{:?}", user);
     Ok(())
 }
