@@ -178,7 +178,7 @@ async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(),
     Ok(())
 }
 
-async fn delete_file(client: &mut Client, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn delete_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
     println!("Deleting file {}", id);
     client.delete_file(id).await?;
     println!("File {} deleted", id);
