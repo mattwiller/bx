@@ -1,4 +1,4 @@
-use super::Error;
+use super::SDKError;
 use async_trait::async_trait;
 
 pub struct AccessToken(String);
@@ -17,7 +17,7 @@ impl From<String> for AccessToken {
 
 #[async_trait]
 pub trait Auth {
-    async fn token(&mut self) -> Result<&AccessToken, Error>;
+    async fn token(&mut self) -> Result<&AccessToken, SDKError>;
 }
 
 pub struct SingleTokenAuth {
@@ -34,7 +34,7 @@ impl SingleTokenAuth {
 
 #[async_trait]
 impl Auth for SingleTokenAuth {
-    async fn token(&mut self) -> Result<&AccessToken, Error> {
+    async fn token(&mut self) -> Result<&AccessToken, SDKError> {
         Ok(&self.token)
     }
 }

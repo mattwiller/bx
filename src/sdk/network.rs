@@ -1,4 +1,4 @@
-use super::Error;
+use super::SDKError;
 use bytes::Bytes;
 use futures::stream::TryStream;
 use reqwest::multipart::Form as MultipartForm;
@@ -93,8 +93,8 @@ impl Request {
 }
 
 impl TryFrom<Request> for ReqwestRequest {
-    type Error = Error;
-    fn try_from(request: Request) -> Result<ReqwestRequest, Error> {
+    type Error = SDKError;
+    fn try_from(request: Request) -> Result<ReqwestRequest, SDKError> {
         Ok(request.req.build()?)
     }
 }
@@ -104,11 +104,11 @@ pub struct Response {
 }
 
 impl Response {
-    pub async fn deserialize<T: serde::de::DeserializeOwned>(self) -> Result<T, Error> {
-        self.res.json().await.map_err(Error::from)
+    pub async fn deserialize<T: serde::de::DeserializeOwned>(self) -> Result<T, SDKError> {
+        self.res.json().await.map_err(SDKError::from)
     }
 
-    pub async fn chunk(&mut self) -> Result<Option<Bytes>, Error> {
+    pub async fn chunk(&mut self) -> Result<Option<Bytes>, SDKError> {
         Ok(self.res.chunk().await?)
     }
 }
@@ -135,7 +135,7 @@ impl NetworkAgent {
         Request::new(req)
     }
 
-    pub async fn send_request(&self, request: Request) -> Result<Response, Error> {
+    pub async fn send_request(&self, request: Request) -> Result<Response, SDKError> {
         let res = self
             .http_client
             .execute(ReqwestRequest::try_from(request)?)

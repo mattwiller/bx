@@ -7,7 +7,7 @@ use super::auth::{Auth, SingleTokenAuth};
 use super::collection::Collection;
 use super::file::File;
 use super::operations::{FileOperation, UserOperation};
-use super::{Body, Error, HTTPMethod, MultipartBody, NetworkAgent, Request, Response};
+use super::{Body, HTTPMethod, MultipartBody, NetworkAgent, Request, Response, SDKError};
 use serde_json::json;
 use std::path::Path;
 use tokio::fs;
@@ -26,7 +26,7 @@ impl Client {
         }
     }
 
-    async fn make_request(&mut self, request: Request) -> Result<Response, Error> {
+    async fn make_request(&mut self, request: Request) -> Result<Response, SDKError> {
         let mut request = request;
 
         let access_token = &self.auth.token().await?;
@@ -37,12 +37,12 @@ impl Client {
         self.network.send_request(request).await
     }
 
-    pub async fn get(&mut self, url: &str) -> Result<Response, Error> {
+    pub async fn get(&mut self, url: &str) -> Result<Response, SDKError> {
         let request = self.network.start_request(HTTPMethod::GET, url);
         self.make_request(request).await
     }
 
-    pub async fn put<T: Serialize>(&mut self, url: &str, body: T) -> Result<Response, Error> {
+    pub async fn put<T: Serialize>(&mut self, url: &str, body: T) -> Result<Response, SDKError> {
         let request = self
             .network
             .start_request(HTTPMethod::PUT, url)
@@ -50,7 +50,7 @@ impl Client {
         self.make_request(request).await
     }
 
-    pub async fn delete(&mut self, url: &str) -> Result<Response, Error> {
+    pub async fn delete(&mut self, url: &str) -> Result<Response, SDKError> {
         let request = self.network.start_request(HTTPMethod::DELETE, url);
         self.make_request(request).await
     }
@@ -59,7 +59,7 @@ impl Client {
         &mut self,
         url: &str,
         body: MultipartBody,
-    ) -> Result<Response, Error> {
+    ) -> Result<Response, SDKError> {
         let request = self
             .network
             .start_request(HTTPMethod::POST, url)
@@ -75,7 +75,7 @@ impl Client {
         UserOperation::new(id, self)
     }
 
-    pub async fn upload_file(&mut self, path: &Path, folder_id: &str) -> Result<File, Error> {
+    pub async fn upload_file(&mut self, path: &Path, folder_id: &str) -> Result<File, SDKError> {
         let file = fs::File::open(path).await?;
         let stream = FramedRead::new(file, BytesCodec::new());
 

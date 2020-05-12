@@ -6,6 +6,7 @@ mod sdk;
 use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
 use sdk::operations::FileUpdates;
 use sdk::Client;
+use sdk::SDKError;
 use std::path::Path;
 
 #[tokio::main]
@@ -136,45 +137,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn get_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
+async fn get_file(client: &mut Client, id: &str) -> Result<(), SDKError> {
     println!("Fetching file {}", id);
     let file = client.file(id).get().await?;
     println!("{:?}", file);
     Ok(())
 }
 
-async fn update_file(
-    client: &mut Client,
-    id: &str,
-    updates: FileUpdates,
-) -> Result<(), sdk::Error> {
+async fn update_file(client: &mut Client, id: &str, updates: FileUpdates) -> Result<(), SDKError> {
     println!("Updating file {}", id);
     let file = client.file(id).update(updates).await?;
     println!("{:#?}", file);
     Ok(())
 }
 
-async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), sdk::Error> {
+async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), SDKError> {
     println!("Downloading file {}", id);
     client.file(id).download(path).await?;
     println!("File {} downloaded to {}", id, path.to_str().unwrap());
     Ok(())
 }
 
-async fn delete_file(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
+async fn delete_file(client: &mut Client, id: &str) -> Result<(), SDKError> {
     println!("Deleting file {}", id);
     client.file(id).delete().await?;
     println!("File {} deleted", id);
     Ok(())
 }
 
-async fn upload_file(client: &mut Client, path: &Path, folder_id: &str) -> Result<(), sdk::Error> {
+async fn upload_file(client: &mut Client, path: &Path, folder_id: &str) -> Result<(), SDKError> {
     let file = client.upload_file(path, folder_id).await?;
     println!("{:#?}", file);
     Ok(())
 }
 
-async fn get_user(client: &mut Client, id: &str) -> Result<(), sdk::Error> {
+async fn get_user(client: &mut Client, id: &str) -> Result<(), SDKError> {
     let user = client.user(id).get().await?;
     println!("{:?}", user);
     Ok(())

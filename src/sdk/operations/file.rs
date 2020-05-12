@@ -1,8 +1,8 @@
 use crate::sdk::models::file::File;
-use crate::sdk::{Client, Error};
+use crate::sdk::{Client, SDKError};
+use serde::Serialize;
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
-use serde::Serialize;
 
 pub struct FileOperation<'a> {
     id: &'a str,
@@ -14,7 +14,7 @@ impl<'a> FileOperation<'a> {
         FileOperation { id, client }
     }
 
-    pub async fn get(&mut self) -> Result<File, Error> {
+    pub async fn get(&mut self) -> Result<File, SDKError> {
         let url = format!("https://api.box.com/2.0/files/{}", self.id);
         let response = self.client.get(&url).await?;
 
@@ -23,13 +23,13 @@ impl<'a> FileOperation<'a> {
         Ok(file)
     }
 
-    pub async fn delete(&mut self) -> Result<(), Error> {
+    pub async fn delete(&mut self) -> Result<(), SDKError> {
         let url = format!("https://api.box.com/2.0/files/{}", self.id);
         self.client.delete(&url).await?;
         Ok(())
     }
 
-    pub async fn download(&mut self, path: &Path) -> Result<(), Error> {
+    pub async fn download(&mut self, path: &Path) -> Result<(), SDKError> {
         let url = format!("https://api.box.com/2.0/files/{}/content", self.id);
 
         let mut response = self.client.get(&url).await?;
@@ -47,7 +47,7 @@ impl<'a> FileOperation<'a> {
         Ok(())
     }
 
-    pub async fn update(&mut self, updates: FileUpdates) -> Result<File, Error> {
+    pub async fn update(&mut self, updates: FileUpdates) -> Result<File, SDKError> {
         let url = format!("https://api.box.com/2.0/files/{}", self.id);
 
         let response = self.client.put(&url, updates).await?;
