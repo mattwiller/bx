@@ -3,7 +3,7 @@
 
 mod sdk;
 
-use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use sdk::operations::FileUpdates;
 use sdk::Client;
 use sdk::SDKError;
@@ -33,36 +33,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .help("The ID of the file")
                         .required(true),
                 )
-                .group(ArgGroup::with_name("action").args(&["delete", "downloadToPath"]))
-                .arg(
-                    Arg::with_name("delete")
-                        .help("Delete the file")
-                        .short("D")
-                        .takes_value(false),
+                .subcommand(SubCommand::with_name("delete"))
+                .subcommand(
+                    SubCommand::with_name("download")
+                        .arg(Arg::with_name("path").default_value(".")),
                 )
-                .arg(
-                    Arg::with_name("downloadToPath")
-                        .help("Download a file to the provided path")
-                        .long("download-to")
-                        .takes_value(true),
-                )
-                .group(
-                    ArgGroup::with_name("update")
-                        .args(&["name", "description"])
-                        .multiple(true)
-                        .conflicts_with("action"),
-                )
-                .arg(
-                    Arg::with_name("name")
-                        .help("Sets the name of the file")
-                        .long("name")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("description")
-                        .help("Sets the description of the file")
-                        .long("description")
-                        .takes_value(true),
+                .subcommand(
+                    SubCommand::with_name("update")
+                        .arg(
+                            Arg::with_name("name")
+                                .help("Sets the name of the file")
+                                .long("name")
+                                .takes_value(true),
+                        )
+                        .arg(
+                            Arg::with_name("description")
+                                .help("Sets the description of the file")
+                                .long("description")
+                                .takes_value(true),
+                        ),
                 ),
         )
         .subcommand(
@@ -100,14 +89,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let file_id = matches.value_of("fileID").unwrap();
 
         // ACTION: delete
-        if matches.is_present("delete") {
+        if let Some(_matches) = matches.subcommand_matches("delete") {
             delete_file(&mut client, file_id).await?;
         // ACTION: download
-        } else if matches.is_present("downloadToPath") {
-            let path = Path::new(matches.value_of("downloadToPath").unwrap_or("."));
+        } else if let Some(matches) = matches.subcommand_matches("download") {
+            let path = Path::new(matches.value_of("path").unwrap());
             download_file(&mut client, file_id, path).await?;
         // ACTION: update
-        } else if matches.is_present("update") {
+        } else if let Some(matches) = matches.subcommand_matches("update") {
             let mut updates = FileUpdates::new();
             if let Some(name) = matches.value_of("name") {
                 updates = updates.name(name);
