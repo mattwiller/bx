@@ -1,3 +1,4 @@
+use super::Response;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -14,4 +15,6 @@ pub enum SDKError {
     InvalidHeader(#[from] http::Error),
     #[error("error reading file: {0}")]
     FileIO(#[from] tokio::io::Error),
+    #[error("box api error: {}", .response.status())]
+    APIError { response: Response },
 }

@@ -3,11 +3,36 @@
 
 mod sdk;
 
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
 use sdk::operations::FileUpdates;
 use sdk::Client;
 use sdk::SDKError;
+use serde::Serialize;
+use serde_json;
+use std::fmt::Debug;
 use std::path::Path;
+
+enum OutputFormat {
+    Debug,
+    JSON,
+}
+
+struct Context {
+    client: Client,
+    fmt: OutputFormat,
+}
+
+impl Context {
+    pub(crate) fn output<T>(&self, object: T)
+    where
+        T: Serialize + Debug,
+    {
+        match self.fmt {
+            OutputFormat::Debug => println!("{:?}", object),
+            OutputFormat::JSON => println!("{}", &serde_json::to_string(&object).unwrap()),
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,6 +49,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Access token to use for any API requests")
                 .takes_value(true)
                 .global(true),
+        )
+        .group(ArgGroup::with_name("output_format"))
+        .arg(
+            Arg::with_name("json")
+                .long("json")
+                .help("Format output as JSON")
+                .takes_value(false)
+                .global(true)
+                .group("output_format"),
         )
         .subcommand(
             SubCommand::with_name("file")
@@ -82,7 +116,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = app.get_matches();
 
     let token = matches.value_of("token").expect("Token must be provided!");
-    let mut client = Client::new(token.to_owned());
+
+    let mut context = Context {
+        client: Client::new(token.to_owned()),
+        fmt: if matches.is_present("json") {
+            OutputFormat::JSON
+        } else {
+            OutputFormat::Debug
+        },
+    };
 
     // OBJECT: file
     if let Some(matches) = matches.subcommand_matches("file") {
@@ -90,11 +132,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // ACTION: delete
         if let Some(_matches) = matches.subcommand_matches("delete") {
-            delete_file(&mut client, file_id).await?;
+            delete_file(&mut context, file_id).await?;
         // ACTION: download
         } else if let Some(matches) = matches.subcommand_matches("download") {
             let path = Path::new(matches.value_of("path").unwrap());
-            download_file(&mut client, file_id, path).await?;
+            download_file(&mut context, file_id, path).await?;
         // ACTION: update
         } else if let Some(matches) = matches.subcommand_matches("update") {
             let mut updates = FileUpdates::new();
@@ -105,63 +147,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 updates = updates.description(description);
             }
 
-            update_file(&mut client, file_id, updates).await?;
+            update_file(&mut context, file_id, updates).await?;
         // DEFAULT ACTION: get
         } else {
-            get_file(&mut client, file_id).await?;
+            get_file(&mut context, file_id).await?;
         }
 
     // COMMAND: upload
     } else if let Some(matches) = matches.subcommand_matches("upload") {
         let path = Path::new(matches.value_of("path").unwrap());
         let folder_id = matches.value_of("folderID").unwrap_or("0");
-        upload_file(&mut client, path, folder_id).await?;
+        upload_file(&mut context, path, folder_id).await?;
 
     // COMMAND: user
     } else if let Some(matches) = matches.subcommand_matches("user") {
         let id = matches.value_of("id").unwrap();
-        get_user(&mut client, id).await?;
+        get_user(&mut context, id).await?;
     }
 
     Ok(())
 }
 
-async fn get_file(client: &mut Client, id: &str) -> Result<(), SDKError> {
+async fn get_file(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
     println!("Fetching file {}", id);
-    let file = client.file(id).get().await?;
-    println!("{:?}", file);
+    let file = ctx.client.file(id).get().await?;
+    ctx.output(file);
     Ok(())
 }
 
-async fn update_file(client: &mut Client, id: &str, updates: FileUpdates) -> Result<(), SDKError> {
+async fn update_file(ctx: &mut Context, id: &str, updates: FileUpdates) -> Result<(), SDKError> {
     println!("Updating file {}", id);
-    let file = client.file(id).update(updates).await?;
-    println!("{:#?}", file);
+    let file = ctx.client.file(id).update(updates).await?;
+    ctx.output(file);
     Ok(())
 }
 
-async fn download_file(client: &mut Client, id: &str, path: &Path) -> Result<(), SDKError> {
+async fn download_file(ctx: &mut Context, id: &str, path: &Path) -> Result<(), SDKError> {
     println!("Downloading file {}", id);
-    client.file(id).download(path).await?;
+    ctx.client.file(id).download(path).await?;
     println!("File {} downloaded to {}", id, path.to_str().unwrap());
     Ok(())
 }
 
-async fn delete_file(client: &mut Client, id: &str) -> Result<(), SDKError> {
+async fn delete_file(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
     println!("Deleting file {}", id);
-    client.file(id).delete().await?;
+    ctx.client.file(id).delete().await?;
     println!("File {} deleted", id);
     Ok(())
 }
 
-async fn upload_file(client: &mut Client, path: &Path, folder_id: &str) -> Result<(), SDKError> {
-    let file = client.upload_file(path, folder_id).await?;
-    println!("{:#?}", file);
+async fn upload_file(ctx: &mut Context, path: &Path, folder_id: &str) -> Result<(), SDKError> {
+    let file = ctx.client.upload_file(path, folder_id).await?;
+    ctx.output(file);
     Ok(())
 }
 
-async fn get_user(client: &mut Client, id: &str) -> Result<(), SDKError> {
-    let user = client.user(id).get().await?;
-    println!("{:?}", user);
+async fn get_user(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
+    let user = ctx.client.user(id).get().await?;
+    ctx.output(user);
     Ok(())
 }
