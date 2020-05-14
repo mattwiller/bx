@@ -1,6 +1,7 @@
 use super::SDKError;
 use bytes::Bytes;
 use futures::stream::TryStream;
+use http::{HeaderMap, StatusCode};
 use reqwest::multipart::Form as MultipartForm;
 use reqwest::{
     Client as ReqwestClient, Method as ReqwestMethod, Request as ReqwestRequest, RequestBuilder,
@@ -99,6 +100,7 @@ impl TryFrom<Request> for ReqwestRequest {
     }
 }
 
+#[derive(Debug)]
 pub struct Response {
     res: ReqwestResponse,
 }
@@ -110,6 +112,14 @@ impl Response {
 
     pub async fn chunk(&mut self) -> Result<Option<Bytes>, SDKError> {
         Ok(self.res.chunk().await?)
+    }
+
+    pub fn status(&self) -> StatusCode {
+        self.res.status()
+    }
+
+    pub fn headers(&self) -> &HeaderMap {
+        self.res.headers()
     }
 }
 
@@ -140,6 +150,13 @@ impl NetworkAgent {
             .http_client
             .execute(ReqwestRequest::try_from(request)?)
             .await?;
-        Ok(Response::from(res))
+
+        let response = Response::from(res);
+
+        if response.status().is_success() {
+            Ok(response)
+        } else {
+            Err(SDKError::APIError { response })
+        }
     }
 }
