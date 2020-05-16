@@ -1,4 +1,4 @@
-use crate::sdk::models::file::File;
+use crate::sdk::models::File;
 use crate::sdk::{Client, SDKError};
 use serde::Serialize;
 use std::path::Path;

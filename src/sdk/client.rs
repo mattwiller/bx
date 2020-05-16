@@ -4,9 +4,8 @@
 use serde::Serialize;
 
 use super::auth::{Auth, SingleTokenAuth};
-use super::collection::Collection;
-use super::file::File;
-use super::operations::{FileOperation, UserOperation};
+use super::models::{Collection, File};
+use super::operations::{FileOperation, FolderOperation, UserOperation};
 use super::{Body, HTTPMethod, MultipartBody, NetworkAgent, Request, Response, SDKError};
 use serde_json::json;
 use std::path::Path;
@@ -69,6 +68,10 @@ impl Client {
 
     pub fn file<'a>(&'a mut self, id: &'a str) -> FileOperation<'a> {
         FileOperation::new(id, self)
+    }
+
+    pub fn folder<'a>(&'a mut self, id: &'a str) -> FolderOperation<'a> {
+        FolderOperation::new(id, self)
     }
 
     pub fn user<'a>(&'a mut self, id: &'a str) -> UserOperation<'a> {

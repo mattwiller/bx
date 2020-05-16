@@ -16,7 +16,6 @@ pub enum ItemStatus {
 pub struct File {
     etag: Option<String>,
     id: String,
-    r#type: String,
     name: Option<String>,
     sequence_id: Option<String>,
     allowed_invitee_roles: Option<Vec<String>>,
@@ -33,7 +32,7 @@ pub struct File {
     modified_by: Option<Box<User>>,
     owned_by: Option<Box<User>>,
     parent: Option<Box<Folder>>,
-    path_collection: Collection<Folder>,
+    path_collection: Option<Collection<Folder>>,
     purged_at: Option<String>,
     sha1: Option<String>,
     shared_link: Option<SharedLink>,
@@ -44,7 +43,6 @@ pub struct File {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileVersion {
-    r#type: String,
     id: String,
     sha1: String,
 }
