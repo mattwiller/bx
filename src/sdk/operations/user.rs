@@ -1,4 +1,4 @@
-use crate::sdk::models::user::User;
+use crate::sdk::models::User;
 use crate::sdk::{Client, SDKError};
 
 pub struct UserOperation<'a> {

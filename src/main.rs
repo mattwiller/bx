@@ -67,36 +67,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .help("The ID of the file")
                         .required(true),
                 )
-                .group(ArgGroup::with_name("action").args(&["delete", "downloadToPath"]))
-                .arg(
-                    Arg::with_name("delete")
-                        .help("Delete the file")
-                        .short("D")
-                        .takes_value(false),
+                .subcommand(SubCommand::with_name("delete"))
+                .subcommand(
+                    SubCommand::with_name("download")
+                        .arg(Arg::with_name("path").default_value(".")),
                 )
-                .arg(
-                    Arg::with_name("downloadToPath")
-                        .help("Download a file to the provided path")
-                        .long("download-to")
-                        .takes_value(true),
-                )
-                .group(
-                    ArgGroup::with_name("update")
-                        .args(&["name", "description"])
-                        .multiple(true)
-                        .conflicts_with("action"),
-                )
-                .arg(
-                    Arg::with_name("name")
-                        .help("Sets the name of the file")
-                        .long("name")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("description")
-                        .help("Sets the description of the file")
-                        .long("description")
-                        .takes_value(true),
+                .subcommand(
+                    SubCommand::with_name("update")
+                        .arg(
+                            Arg::with_name("name")
+                                .help("Sets the name of the file")
+                                .long("name")
+                                .takes_value(true),
+                        )
+                        .arg(
+                            Arg::with_name("description")
+                                .help("Sets the description of the file")
+                                .long("description")
+                                .takes_value(true),
+                        ),
                 ),
         )
         .subcommand(
@@ -112,6 +101,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .long("folder-id")
                         .short("D")
                         .takes_value(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("folder")
+                .about("Display information about a folder")
+                .arg(
+                    Arg::with_name("id")
+                        .help("The ID of the folder")
+                        .default_value("0"),
+                )
+                .subcommand(
+                    SubCommand::with_name("items")
+                        .about("List the items in a folder")
+                        .arg(
+                            Arg::with_name("limit")
+                                .long("limit")
+                                .short("n")
+                                .default_value("100"),
+                        ),
                 ),
         )
         .subcommand(
@@ -142,14 +150,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let file_id = matches.value_of("fileID").unwrap();
 
         // ACTION: delete
-        if matches.is_present("delete") {
+        if let Some(_matches) = matches.subcommand_matches("delete") {
             delete_file(&mut context, file_id).await?;
         // ACTION: download
-        } else if matches.is_present("downloadToPath") {
-            let path = Path::new(matches.value_of("downloadToPath").unwrap_or("."));
+        } else if let Some(matches) = matches.subcommand_matches("download") {
+            let path = Path::new(matches.value_of("path").unwrap());
             download_file(&mut context, file_id, path).await?;
         // ACTION: update
-        } else if matches.is_present("update") {
+        } else if let Some(matches) = matches.subcommand_matches("update") {
             let mut updates = FileUpdates::new();
             if let Some(name) = matches.value_of("name") {
                 updates = updates.name(name);
@@ -170,6 +178,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let folder_id = matches.value_of("folderID").unwrap_or("0");
         upload_file(&mut context, path, folder_id).await?;
 
+    // COMMAND: folder
+    } else if let Some(matches) = matches.subcommand_matches("folder") {
+        let id = matches.value_of("id").unwrap();
+        if let Some(matches) = matches.subcommand_matches("items") {
+            let limit = matches.value_of("limit").unwrap().parse()?;
+            get_folder_items(&mut context, id, limit).await?;
+        } else {
+            get_folder(&mut context, id).await?;
+        }
     // COMMAND: user
     } else if let Some(matches) = matches.subcommand_matches("user") {
         let id = matches.value_of("id").unwrap();
@@ -180,28 +197,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn get_file(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
-    println!("Fetching file {}", id);
     let file = ctx.client.file(id).get().await?;
     ctx.output(file);
     Ok(())
 }
 
 async fn update_file(ctx: &mut Context, id: &str, updates: FileUpdates) -> Result<(), SDKError> {
-    println!("Updating file {}", id);
     let file = ctx.client.file(id).update(updates).await?;
     ctx.output(file);
     Ok(())
 }
 
 async fn download_file(ctx: &mut Context, id: &str, path: &Path) -> Result<(), SDKError> {
-    println!("Downloading file {}", id);
+    println!("Downloading file {}...", id);
     ctx.client.file(id).download(path).await?;
     println!("File {} downloaded to {}", id, path.to_str().unwrap());
     Ok(())
 }
 
 async fn delete_file(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
-    println!("Deleting file {}", id);
     ctx.client.file(id).delete().await?;
     println!("File {} deleted", id);
     Ok(())
@@ -210,6 +224,18 @@ async fn delete_file(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
 async fn upload_file(ctx: &mut Context, path: &Path, folder_id: &str) -> Result<(), SDKError> {
     let file = ctx.client.upload_file(path, folder_id).await?;
     ctx.output(file);
+    Ok(())
+}
+
+async fn get_folder(ctx: &mut Context, id: &str) -> Result<(), SDKError> {
+    let folder = ctx.client.folder(id).get().await?;
+    ctx.output(folder);
+    Ok(())
+}
+
+async fn get_folder_items(ctx: &mut Context, id: &str, limit: u32) -> Result<(), SDKError> {
+    let items = ctx.client.folder(id).get_items(limit).await?;
+    ctx.output(items);
     Ok(())
 }
 
