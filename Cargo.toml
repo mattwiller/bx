@@ -11,6 +11,9 @@ categories = ["command-line-utilities"]
 readme = "README.md"
 include = ["src/**/*", "Cargo.toml"]
 
+[badges]
+maintenance = { status = "experimental" }
+
 [dependencies]
 reqwest = { version = "0.10", features = ["json", "gzip", "stream"] }
 tokio = { version = "0.2", features = ["full"] }
