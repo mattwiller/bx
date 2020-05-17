@@ -12,7 +12,7 @@ impl<'a> UserOperation<'a> {
     }
 
     pub async fn get(&mut self) -> Result<User, SDKError> {
-        let url = format!("https://api.box.com/2.0/users/{}", self.id);
+        let url = format!("/users/{}", self.id);
         let response = self.client.get(&url).await?;
 
         let user: User = response.deserialize().await?;

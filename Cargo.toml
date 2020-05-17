@@ -24,3 +24,9 @@ http = "0.2"
 async-trait = "0.1"
 thiserror = "1.0"
 futures = "0.3"
+
+[dev-dependencies]
+assert_cmd = "1.0"
+predicates = "1.0"
+httpmock = "0.3"
+assert-json-diff = "1.0"

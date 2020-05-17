@@ -9,6 +9,7 @@ use reqwest::{
 };
 use serde_json::Value;
 use std::convert::TryFrom;
+use std::env;
 
 pub enum HTTPMethod {
     GET,
@@ -141,7 +142,13 @@ impl NetworkAgent {
     }
 
     pub fn start_request(&self, method: HTTPMethod, url: &str) -> Request {
-        let req = self.http_client.request(method.into(), url);
+        let req = if url.starts_with("/") {
+            let api_root = env::var("BOX_API_ROOT").unwrap_or("https://api.box.com/2.0".to_owned());
+            let absolute_url = format!("{}{}", api_root, url);
+            self.http_client.request(method.into(), &absolute_url)
+        } else {
+            self.http_client.request(method.into(), url)
+        };
         Request::new(req)
     }
 
