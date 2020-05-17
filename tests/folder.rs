@@ -7,27 +7,29 @@ use common::{assert_output_json, cmd};
 
 #[test]
 #[with_mock_server]
-fn bx_user_displays_current_user() {
+fn bx_folder_displays_root_folder() {
     let mut cmd = cmd();
-    cmd.args(&["user", "-t", "access_token", "--json"]);
+    cmd.args(&["folder", "-t", "access_token", "--json"]);
 
     let json = json!({
-        "type": "user",
-        "id": "1",
-        "name": "Test User",
-        "login": "user@example.com",
+        "type": "folder",
+        "id": "0",
+        "etag": null,
+        "name": "All Files",
+        "sequence_id": null
     });
 
-    let search_mock = mock(GET, "/users/me")
+    let search_mock = mock(GET, "/folders/0")
         .expect_header("authorization", "Bearer access_token")
         .return_status(200)
         .return_json_body(&json)
         .create();
 
     let expected = json!({
-        "id": "1",
-        "name": "Test User",
-        "login": "user@example.com",
+        "id": "0",
+        "etag": null,
+        "name": "All Files",
+        "sequence_id": null
     });
     assert_output_json(cmd, expected);
     assert_eq!(search_mock.times_called(), 1);
@@ -35,27 +37,29 @@ fn bx_user_displays_current_user() {
 
 #[test]
 #[with_mock_server]
-fn bx_user_id_displays_user() {
+fn bx_folder_id_displays_folder() {
     let mut cmd = cmd();
-    cmd.args(&["user", "2", "-t", "access_token", "--json"]);
+    cmd.args(&["folder", "3", "-t", "access_token", "--json"]);
 
     let json = json!({
-        "type": "user",
-        "id": "2",
-        "name": "Test User 2",
-        "login": "user2@example.com",
+        "type": "folder",
+        "id": "3",
+        "etag": "1",
+        "name": "Test Folder",
+        "sequence_id": "1"
     });
 
-    let search_mock = mock(GET, "/users/2")
+    let search_mock = mock(GET, "/folders/3")
         .expect_header("authorization", "Bearer access_token")
         .return_status(200)
         .return_json_body(&json)
         .create();
 
     let expected = json!({
-        "id": "2",
-        "name": "Test User 2",
-        "login": "user2@example.com",
+        "id": "3",
+        "etag": "1",
+        "name": "Test Folder",
+        "sequence_id": "1"
     });
     assert_output_json(cmd, expected);
     assert_eq!(search_mock.times_called(), 1);

@@ -12,7 +12,7 @@ impl<'a> FolderOperation<'a> {
     }
 
     pub async fn get(&mut self) -> Result<Folder, SDKError> {
-        let url = format!("https://api.box.com/2.0/folders/{}", self.id);
+        let url = format!("/folders/{}", self.id);
         let response = self.client.get(&url).await?;
 
         let folder: Folder = response.deserialize().await?;
@@ -21,10 +21,7 @@ impl<'a> FolderOperation<'a> {
     }
 
     pub async fn get_items(&mut self, limit: u32) -> Result<Collection<Item>, SDKError> {
-        let url = format!(
-            "https://api.box.com/2.0/folders/{}/items?limit={}",
-            self.id, limit
-        );
+        let url = format!("/folders/{}/items?limit={}", self.id, limit);
 
         let response: Response = self.client.get(&url).await?;
         let items: Collection<Item> = response.deserialize().await?;
