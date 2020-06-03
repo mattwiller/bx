@@ -16,5 +16,5 @@ pub enum SDKError {
     #[error("error reading file: {0}")]
     FileIO(#[from] tokio::io::Error),
     #[error("box api error: {}", .response.status())]
-    APIError { response: Response },
+    APIError { response: Box<Response> },
 }
