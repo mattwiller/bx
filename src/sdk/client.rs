@@ -13,7 +13,7 @@ use tokio::fs;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 pub struct Client {
-    auth: Box<dyn Auth>,
+    auth: Box<dyn Auth + Send>,
     network: NetworkAgent,
 }
 

@@ -143,7 +143,8 @@ impl NetworkAgent {
 
     pub fn start_request(&self, method: HTTPMethod, url: &str) -> Request {
         let req = if url.starts_with('/') {
-            let api_root = env::var("BOX_API_ROOT").unwrap_or_else(|_| "https://api.box.com/2.0".to_owned());
+            let api_root =
+                env::var("BOX_API_ROOT").unwrap_or_else(|_| "https://api.box.com/2.0".to_owned());
             let absolute_url = format!("{}{}", api_root, url);
             self.http_client.request(method.into(), &absolute_url)
         } else {
@@ -163,7 +164,9 @@ impl NetworkAgent {
         if response.status().is_success() {
             Ok(response)
         } else {
-            Err(SDKError::APIError { response: Box::new(response) })
+            Err(SDKError::APIError {
+                response: Box::new(response),
+            })
         }
     }
 }

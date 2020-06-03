@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms)]
 #![deny(clippy::all)]
 
+mod cli;
 mod sdk;
 
 use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
