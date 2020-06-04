@@ -2,6 +2,7 @@
 #![deny(clippy::all)]
 
 mod cli;
+mod commands;
 mod sdk;
 
 use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
